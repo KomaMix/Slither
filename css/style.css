@@ -1,5 +1,32 @@
 canvas {
     display: block;
     margin: 0 auto;
+
+    
+}
+
+body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+
+    font-family: 'Arial', sans-serif;
+    color: white;
+}
+
+#canvas {
+    border: 5px solid #2c3e50;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+h1 {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 2em;
 }
 

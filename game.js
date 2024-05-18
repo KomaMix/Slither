@@ -1,5 +1,4 @@
-// Змея как отдельный объект
-let snake = {
+let slither = {
     centerX: undefined,
     centerY: undefined,
 
@@ -35,7 +34,6 @@ let snake = {
         this.speed = this.init_speed;
         this.cntCircles = Math.round((this.init_length - 2 * this.init_radius) / (this.init_distance * 2)) + 1;
 
-
         this.food_height = food_height;
         this.food_width = food_width;
 
@@ -48,11 +46,10 @@ let snake = {
     },
 
     update: function(deltaTime) {
-        this.updateSnakeMetrics();
+        this.updateSlitherMetrics();
 
         this.slithers[0].x += this.direction.dx * deltaTime * this.speed;
         this.slithers[0].y += this.direction.dy * deltaTime * this.speed;
-
 
         for (let i = 1; i < this.cntCircles; i++) {
             let dir = normalizeVector([this.slithers[i - 1].x - this.slithers[i].x, this.slithers[i - 1].y - this.slithers[i].y]);
@@ -64,7 +61,7 @@ let snake = {
         }
     },
 
-    updateSnakeMetrics: function() {
+    updateSlitherMetrics: function() {
         this.length = this.init_length * Math.pow(this.mass / this.init_mass, 0.7);
         this.radius = this.init_radius * Math.pow(this.mass / this.init_mass, 0.15);
         this.distance = this.init_distance * Math.pow(this.mass / this.init_mass, 0.15);
@@ -93,10 +90,10 @@ let snake = {
 
     eat: function(foods) {
         let head = this.slithers[0];
-        for (let i = foods.length - 1; i >= 0; i--) {
-            if (get_distance([head.x, head.y], [foods[i].x + foods[i].scalar * this.food_width / 2, foods[i].y + foods[i].scalar * this.food_height / 2]) < this.radius + foods[i].scalar * this.food_width / 2) {
-                this.mass += foods[i].scalar * foods[i].scalar * 100;
-                foods.splice(i, 1);
+        for (let i = foods.items.length - 1; i >= 0; i--) {
+            if (get_distance([head.x, head.y], [foods.items[i].x + foods.items[i].scalar * this.food_width / 2, foods.items[i].y + foods.items[i].scalar * this.food_height / 2]) < this.radius + foods.items[i].scalar * this.food_width / 2) {
+                this.mass += foods.items[i].scalar * foods.items[i].scalar * 100;
+                foods.items.splice(i, 1);
             }
         }
     },
@@ -112,7 +109,34 @@ let snake = {
             ctx.stroke();
         });
     }
+};
 
+// Еда как отдельный объект
+let foods = {
+    items: [],
+    foodScalar: 0.04,
+    food_width: 900,
+    food_height: 675,
+
+    create: function(width, height, cntFoods) {
+        this.items = [];
+        for (var i = 0; i < cntFoods; i++) {
+            this.items.push({
+                x: Math.random() * width * 2,
+                y: Math.random() * height * 2,
+                scalar: this.foodScalar
+            });
+        }
+    },
+
+    render: function(dx, dy, ctx, centerX, centerY, rendering_scalar, sprite) {
+        this.items.forEach(element => {
+            ctx.drawImage(sprite, 
+                Math.round(centerX - (centerX - (element.x + dx)) / rendering_scalar), 
+                Math.round(centerY - (centerY - (element.y + dy)) / rendering_scalar), 
+                this.food_width * element.scalar / rendering_scalar, this.food_height * element.scalar / rendering_scalar);
+        });
+    }
 };
 
 // Игра как отдельный объект
@@ -122,11 +146,7 @@ let game = {
     ctx: undefined,
     centerX: undefined,
     centerY: undefined,
-    food_width: 900,
-    food_height: 675,
-    foodScalar: 0.04,
-    cntFoods: 0,
-    foods: [],
+    cntFoods: 100,
     rendering_scalar: 1,
     frame: 0,
     previousFrameTime: performance.now(),
@@ -145,13 +165,13 @@ let game = {
             var x = event.clientX - rect.left - this.centerX;
             var y = event.clientY - rect.top - this.centerY;
             var dir = normalizeVector([x, y]);
-            snake.direction.dx = dir[0];
-            snake.direction.dy = dir[1];
+            slither.direction.dx = dir[0];
+            slither.direction.dy = dir[1];
         });
 
         this.ctx = canvas.getContext("2d");
         this.ctx.font = "30px Arial";
-        snake.init(this.centerX, this.centerY, this.food_height, this.food_width);
+        slither.init(this.centerX, this.centerY, foods.food_height, foods.food_width);
     },
 
     load: function() {
@@ -161,21 +181,10 @@ let game = {
         }
     },
 
-    create: function() {
-        this.cntFoods = 100;
-        for (var i = 0; i < this.cntFoods; i++) {
-            this.foods.push({
-                x: Math.random() * this.width * 2,
-                y: Math.random() * this.height * 2,
-                scalar: this.foodScalar
-            });
-        }
-    },
-
     start: function() {
         this.init();
         this.load();
-        this.create();
+        foods.create(this.width, this.height, this.cntFoods);
         this.run();
     },
 
@@ -183,27 +192,20 @@ let game = {
         this.ctx.clearRect(0, 0, this.width, this.height);
         this.ctx.drawImage(this.sprites.background, 0, 0, this.width, this.height);
         this.ctx.fillStyle = "white";
-        this.ctx.fillText("Score:" + this.frame, 15, this.height - 15);
+        this.ctx.fillText("Mass:" + (slither.mass * 100).toFixed(), 15, this.height - 15);
 
-        let dx = this.centerX - snake.slithers[0].x;
-        let dy = this.centerY - snake.slithers[0].y;
+        let dx = this.centerX - slither.slithers[0].x;
+        let dy = this.centerY - slither.slithers[0].y;
 
-
-        this.foods.forEach(element => {
-            this.ctx.drawImage(this.sprites.food, 
-                Math.round(this.centerX - (this.centerX -  (element.x + dx)) / this.rendering_scalar), 
-                Math.round(this.centerY - (this.centerY - (element.y + dy)) / this.rendering_scalar), 
-                this.food_width * element.scalar / this.rendering_scalar, this.food_height * element.scalar / this.rendering_scalar);
-        });
-
-        snake.render(dx, dy, this.ctx);
+        foods.render(dx, dy, this.ctx, this.centerX, this.centerY, this.rendering_scalar, this.sprites.food);
+        slither.render(dx, dy, this.ctx);
     },
 
     update: function(deltaTime) {
-        snake.update(deltaTime);
-        snake.eat(this.foods);
+        slither.update(deltaTime);
+        slither.eat(foods);
 
-        this.rendering_scalar = snake.rendering_scalar;
+        this.rendering_scalar = slither.rendering_scalar;
     },
 
     run: function() {
@@ -211,7 +213,6 @@ let game = {
         let deltaTime = currentFrameTime - this.previousFrameTime;
         this.previousFrameTime = currentFrameTime;
         this.frame += 1;
-
 
         this.update(deltaTime);
         this.render();
