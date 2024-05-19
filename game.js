@@ -69,7 +69,7 @@ let slither = {
 
         this.speed = this.init_speed * Math.pow(this.mass / this.init_mass, 0.12);
 
-        this.rendering_scalar = Math.pow(this.mass / this.init_mass, 0.11);
+
 
         if (new_cnt_Circles > this.cntCircles) {
             for (let _ = 0; _ < new_cnt_Circles - this.cntCircles; _++) {
@@ -92,7 +92,7 @@ let slither = {
         let head = this.slithers[0];
         for (let i = foods.items.length - 1; i >= 0; i--) {
             if (get_distance([head.x, head.y], [foods.items[i].x + foods.items[i].scalar * this.food_width / 2, foods.items[i].y + foods.items[i].scalar * this.food_height / 2]) < this.radius + foods.items[i].scalar * this.food_width / 2) {
-                this.mass += foods.items[i].scalar * foods.items[i].scalar * 100;
+                this.mass += foods.items[i].scalar * foods.items[i].scalar * 1000;
                 foods.items.splice(i, 1);
             }
         }
@@ -130,6 +130,10 @@ let foods = {
     },
 
     render: function(dx, dy, ctx, centerX, centerY, rendering_scalar, sprite) {
+        if (this.items.length == 0) {
+            game.game_over(true);
+        }
+
         this.items.forEach(element => {
             ctx.drawImage(sprite, 
                 Math.round(centerX - (centerX - (element.x + dx)) / rendering_scalar), 
@@ -142,20 +146,25 @@ let foods = {
 
 // Еда как отдельный объект
 let comets = {
+    width: undefined,
+    height: undefined,
     items: [],
     comet_radius: 450,
     max_comets: undefined,
-    alpha_step: 0.001,
+    alpha_step_min: 0.001,
+    alpha_step_max: 0.0015,
 
     // Для вызова какой-либо функции с определенной частотой
     lastTime: 0,
     interval: 100,
-    id_interval: undefined,
+    id_isCommetHit: undefined,
 
     
       
 
     create: function(max_comets, width, height) {
+        this.width = width;
+        this.height = height;
         this.max_comets = max_comets;
         
 
@@ -165,16 +174,16 @@ let comets = {
                 x: Math.random() * width * 2,
                 y: Math.random() * height * 2,
                 alpha: 0,
+                alpha_step: Math.random() * (this.alpha_step_max - this.alpha_step_min) + this.alpha_step_min,
                 scalar: Math.random()
             });
         }
 
-        this.id_interval = setInterval(this.myFunction, this.interval);
+        this.id_isCommetHit = setInterval(this.isCommetHit, this.interval);
     },
 
-    myFunction: function() {
+    isCommetHit: function() {
         for (let i = comets.items.length - 1; i >= 0; i--) {
-            let flag = false;
             for (var j = 0; j < slither.slithers.length; j++) {
                 let dist = get_distance([comets.items[i].x, comets.items[i].y], [slither.slithers[j].x, slither.slithers[j].y]);
                 let sum_radius = comets.comet_radius * comets.items[i].scalar + slither.radius;
@@ -183,24 +192,28 @@ let comets = {
                 if (dist < sum_radius && comets.items[i].alpha > 0.5)
                 {
                     flag = true;
-                    clearInterval(this.id_interval);
-                    game.game_over();
-                    
-                    break;
+                    clearInterval(this.id_isCommetHit);
+                    game.game_over(false);
                     
                     
                 }
-            }
-            if (flag)
-            {
-                break;
             }
         }
     },
 
     update: function() {
+        while (this.max_comets > this.items.length) {
+            this.items.push({
+                x: Math.random() * this.width * 2,
+                y: Math.random() * this.height * 2,
+                alpha: 0,
+                alpha_step: Math.random() * (this.alpha_step_max - this.alpha_step_min) + this.alpha_step_min,
+                scalar: Math.random()
+            });
+        }
+
         this.items.forEach(element => {
-            element.alpha += this.alpha_step;
+            element.alpha += element.alpha_step;
         });
 
         for (let i = this.items.length - 1; i >= 0; i--) {
@@ -241,9 +254,14 @@ let game = {
     cntFoods: 100,
     rendering_scalar: 1,
 
-    is_game_going: true,
+    is_game_over: false,
     frame: 0,
     previousFrameTime: performance.now(),
+
+    sounds: {
+        background: undefined,
+        gameOver: undefined
+    },
 
 
     sprites: {
@@ -269,7 +287,7 @@ let game = {
         this.ctx.font = "30px Arial";
         foods.create(this.width, this.height, this.cntFoods);
         slither.init(this.centerX, this.centerY, foods.food_height, foods.food_width);
-        comets.create(4, this.width, this.height);
+        comets.create(7, this.width, this.height);
     },
 
     load: function() {
@@ -277,12 +295,17 @@ let game = {
             this.sprites[key] = new Image();
             this.sprites[key].src = "images/" + key + ".png";
         }
+
+        this.sounds.background = new Audio("sounds/background.mp3");
     },
 
     start: function() {
         this.init();
         this.load();
         
+
+        this.sounds.background.loop = true;
+        this.sounds.background.play();
         this.run();
     },
 
@@ -309,36 +332,33 @@ let game = {
     },
 
     run: function() {
-        if (this.is_game_going) {
-            let currentFrameTime = performance.now();
-            let deltaTime = currentFrameTime - this.previousFrameTime;
-            this.previousFrameTime = currentFrameTime;
-            this.frame += 1;
-    
-            this.update(deltaTime);
-            this.render();
-    
-            window.requestAnimationFrame(() => {
-                this.run();
-            });
+        let currentFrameTime = performance.now();
+        let deltaTime = currentFrameTime - this.previousFrameTime;
+        this.previousFrameTime = currentFrameTime;
+        this.frame += 1;
+
+        this.update(deltaTime);
+        this.render();
+
+        window.requestAnimationFrame(() => {
+            this.run();
+        });
+        
+    },
+
+    game_over: function(flag) {
+        if (!this.is_game_over) {
+            this.is_game_over = true;
+            alert("Игра окончена!");
+            location.reload();
         }
-    },
-
-    game_over: function() {
-        alert("Игра окончена!");
-        this.reset();
-    },
-
-    reset: function() {
-        this.is_game_going = true;
-        this.frame = 0;
-        this.previousFrameTime = performance.now();
-        slither.slithers = [];
-        this.start();
     }
 };
 
-window.addEventListener("load", function() {
+
+document.getElementById("start-button").addEventListener("click", function() {
+    document.getElementById("menu").style.display = "none";
+    document.getElementById("game-container").style.display = "block";
     game.start();
 });
 
